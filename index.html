@@ -449,7 +449,7 @@ input::placeholder { color: var(--txt3); }
     <div class="card">
       <div class="frow" style="flex-direction:column;gap:10px;align-items:stretch;">
         <button class="export-btn" onclick="syncPush()">☁️ Carica su cloud adesso</button>
-        <button class="export-btn" onclick="syncPull()">⬇️ Scarica da cloud adesso</button>
+        <button class="export-btn" onclick="syncPull(false)">⬇️ Scarica da cloud adesso</button>
         <button class="export-btn" onclick="createBackup()">💾 Crea backup manuale</button>
       </div>
     </div>
@@ -706,29 +706,50 @@ async function syncPush(silent = false) {
 }
 
 // Pull dati ← Gist
-async function syncPull() {
-  if (!S.cfg.token || !S.cfg.gistId) { toast('Configura prima il token Gist'); return; }
-  setSyncStatus('⏳ Scaricamento…', 'var(--txt2)');
+async function syncPull(silent = false) {
+  if (!S.cfg.token || !S.cfg.gistId) {
+    if (!silent) toast('Configura prima il token Gist');
+    return;
+  }
+  if (!silent) setSyncStatus('⏳ Scaricamento…', 'var(--txt2)');
   try {
-    const res = await fetch(`https://api.github.com/gists/${S.cfg.gistId}`, { headers: gistHeaders() });
+    const res = await fetch(`https://api.github.com/gists/${S.cfg.gistId}?t=${Date.now()}`, { headers: gistHeaders() });
     if (!res.ok) throw new Error('Gist non raggiungibile');
     const data = await res.json();
     const file = data.files[GIST_FILE];
     if (!file) throw new Error('File dati non trovato nel Gist');
     const remote = JSON.parse(file.content);
-    // Merge: vince la versione più recente per ID
     const merged = mergeEntries(S.entries, remote);
+    const changed = merged.length !== S.entries.length ||
+      JSON.stringify(merged) !== JSON.stringify(S.entries);
     S.entries = merged;
-    saveStorage();
-    renderRegistro();
+    // Salva locale senza triggerare push (evita loop)
+    localStorage.setItem('timbrature_entries', JSON.stringify(S.entries));
+    // Re-render tab corrente
+    if (S.tab === 'registro') renderRegistro();
+    else if (S.tab === 'riepilogo') renderRiepilogo();
     const ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
     setSyncStatus(`✅ Sincronizzato alle ${ts} — ${merged.length} voci`, 'var(--green)');
-    toast(`Sync completata — ${merged.length} voci ✓`);
-    renderImpostazioni();
+    updateSyncBadge(ts);
+    if (!silent) toast(`Sync completata — ${merged.length} voci ✓`);
+    else if (changed) toast(`☁️ ${merged.length} voci aggiornate dal cloud`);
+    if (S.tab === 'impostazioni') renderImpostazioni();
   } catch(e) {
     setSyncStatus('❌ Download fallito: ' + e.message, 'var(--red)');
-    toast('Errore download');
+    if (!silent) toast('Errore download: ' + e.message);
   }
+}
+
+// Mostra ultima sync nell'header
+function updateSyncBadge(ts) {
+  let badge = document.getElementById('sync-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'sync-badge';
+    badge.style.cssText = 'font-size:11px;color:var(--green);margin-left:6px;';
+    document.getElementById('hdr-left').appendChild(badge);
+  }
+  badge.textContent = '☁️ ' + ts;
 }
 
 // Merge intelligente: unisce locale + remoto, deduplicato per ID, vince data più recente
@@ -1604,7 +1625,7 @@ document.getElementById('hdr-sub').textContent = fmtDate(todayStr());
 
 // Pull automatico all'avvio se già configurato
 if (S.cfg.token && S.cfg.gistId) {
-  syncPull().catch(() => {});
+  syncPull(true).catch(() => {});
 }
 
 if ('serviceWorker' in navigator) {
