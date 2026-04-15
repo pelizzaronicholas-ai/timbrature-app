@@ -10,6 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Timbrature</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:       #F2F2F7;
@@ -1048,41 +1049,252 @@ function renderRiepilogo() {
       ${oreS === 0 ? '<div class="dt-row"><span class="dt-label" style="color:var(--txt3)">Nessuno straordinario</span></div>' : ''}
     </div>
 
-    <button class="export-btn" onclick="exportCSV(${m},${y})">Esporta CSV — ${MESI[m]} ${y}</button>`;
+    <button class="export-btn" onclick="exportXLSX(${m},${y})">📊 Esporta Excel — ${MESI[m]} ${y}</button>
+    <button class="export-btn" style="margin-top:8px;" onclick="exportPDF(${m},${y})">🖨️ Stampa PDF Calendario — ${MESI[m]} ${y}</button>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EXPORT CSV
+// EXPORT XLSX (SheetJS)
 // ─────────────────────────────────────────────────────────────────────────────
-function exportCSV(m, y) {
+function exportXLSX(m, y) {
   const filtered = S.entries.filter(e => {
     const d = new Date(e.date+'T12:00:00');
     return d.getMonth() === m && d.getFullYear() === y;
   });
-  let csv = `Timbrature Ecoprogram Flotte — ${MESI[m]} ${y}\n`;
-  csv += 'Data;Giorno;Inizio;Fine;Pausa (min);Ore nette;Ore straord.;Tipo;Magg.%;Importo straord.;Trasferta;Luogo;Tariffa;Note\n';
+
+  // Intestazione
+  const headers = ['Data','Giorno','Inizio','Fine','Pausa (min)',
+    'Ore nette','Ore straord.','Tipo straord.','Magg. %',
+    'Importo straord. €','Trasferta','Luogo','Tariffa €/g','Note','Totale €'];
+
   let totOreN=0, totOreS=0, totEuroS=0, totEuroT=0;
-  filtered.forEach(e => {
+
+  const rows = filtered.map(e => {
     const d = new Date(e.date+'T12:00:00');
     const c = calc(e);
-    if (!c) return;
-    totOreN  += c.oreN;  totOreS  += c.oreS;
-    totEuroS += c.euroS; totEuroT += c.euroT;
-    csv += [
-      e.date, DOW[d.getDay()], e.start, e.end, e.breakMin||0,
-      fmtN(c.oreN), fmtN(c.oreS), TIPI[c.tipo].label, TIPI[c.tipo].magg+'%',
-      fmtN(c.euroS), e.trasferta?'Sì':'No',
-      e.loc?.name||'', e.trasferta?(e.tariff||22):'', e.note||''
-    ].join(';') + '\n';
+    if (!c) return null;
+    totOreN  += c.oreN;
+    totOreS  += c.oreS;
+    totEuroS += c.euroS;
+    totEuroT += c.euroT;
+    return [
+      e.date,
+      DOW[d.getDay()],
+      e.start,
+      e.end,
+      e.breakMin || 0,
+      parseFloat(c.oreN.toFixed(2)),
+      parseFloat(c.oreS.toFixed(2)),
+      TIPI[c.tipo].label,
+      TIPI[c.tipo].magg,
+      parseFloat(c.euroS.toFixed(2)),
+      e.trasferta ? 'Sì' : 'No',
+      e.loc?.name || '',
+      e.trasferta ? (e.tariff || 22) : '',
+      e.note || '',
+      parseFloat(c.total.toFixed(2))
+    ];
+  }).filter(Boolean);
+
+  // Righe totali
+  rows.push([]);
+  rows.push(['TOTALE','','','','',
+    parseFloat(totOreN.toFixed(2)),
+    parseFloat(totOreS.toFixed(2)),
+    '','',
+    parseFloat(totEuroS.toFixed(2)),
+    '','','',
+    '',
+    parseFloat((totEuroS+totEuroT).toFixed(2))
+  ]);
+  rows.push(['Trasferte','','','','','','','','','','','','','',parseFloat(totEuroT.toFixed(2))]);
+
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Larghezze colonne basate sul contenuto
+  const colWidths = headers.map((h, ci) => {
+    let max = h.length;
+    wsData.forEach(row => {
+      const v = row[ci] !== undefined && row[ci] !== null ? String(row[ci]) : '';
+      if (v.length > max) max = v.length;
+    });
+    return { wch: max + 2 };
   });
-  csv += `\nTotale;;;;; ${fmtN(totOreN)};${fmtN(totOreS)};;;${fmtN(totEuroS)};;;\n`;
-  csv += `Trasferte;;;;;;;;; ;${fmtN(totEuroT)}\n`;
-  csv += `TOTALE DA LIQUIDARE;;;;;;;;;${fmtN(totEuroS+totEuroT)}\n`;
-  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `timbrature_${MESI[m]}_${y}.csv`;
-  a.click();
+  ws['!cols'] = colWidths;
+
+  // Stile intestazione (sfondo blu, testo bianco) — supportato da xlsx-style, qui usiamo il default
+  // Freeze prima riga
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `${MESI[m]} ${y}`);
+
+  // Foglio riepilogo
+  const wsSum = XLSX.utils.aoa_to_sheet([
+    ['Riepilogo', `${MESI[m]} ${y}`],
+    [],
+    ['Ore nette totali', parseFloat(totOreN.toFixed(2))],
+    ['Ore straordinarie', parseFloat(totOreS.toFixed(2))],
+    ['Importo straordinari €', parseFloat(totEuroS.toFixed(2))],
+    ['Importo trasferte €', parseFloat(totEuroT.toFixed(2))],
+    ['TOTALE DA LIQUIDARE €', parseFloat((totEuroS+totEuroT).toFixed(2))],
+  ]);
+  wsSum['!cols'] = [{wch:28},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsSum, 'Riepilogo');
+
+  XLSX.writeFile(wb, `timbrature_${MESI[m]}_${y}.xlsx`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORT PDF — CALENDARIO DA SCRIVANIA (finestra di stampa)
+// ─────────────────────────────────────────────────────────────────────────────
+function exportPDF(m, y) {
+  const filtered = S.entries.filter(e => {
+    const d = new Date(e.date+'T12:00:00');
+    return d.getMonth() === m && d.getFullYear() === y;
+  });
+
+  // Mappa date → entry
+  const byDate = {};
+  let totOreN=0, totOreS=0, totEuroS=0, totEuroT=0, giorni=0;
+  filtered.forEach(e => {
+    const c = calc(e);
+    if (c) {
+      byDate[e.date] = { e, c };
+      totOreN += c.oreN; totOreS += c.oreS;
+      totEuroS += c.euroS; totEuroT += c.euroT;
+      giorni++;
+    }
+  });
+
+  // Griglia calendario
+  const firstDay = new Date(`${y}-${String(m+1).padStart(2,'0')}-01T12:00:00`);
+  const lastDay  = new Date(y, m+1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // lunedì=0
+  const daysInMonth = lastDay.getDate();
+
+  const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+
+  let calCells = '';
+  // Celle vuote iniziali
+  for (let i = 0; i < startDow; i++) {
+    calCells += `<td class="cal-cell empty"></td>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const entry = byDate[ds];
+    const dow = (startDow + d - 1) % 7;
+    const isFestivo = dow === 5 || dow === 6;
+    const c = entry?.c;
+    const e = entry?.e;
+
+    let cellContent = `<div class="cal-day">${d}</div>`;
+    if (e) {
+      cellContent += `<div class="cal-time">${e.start} – ${e.end}</div>`;
+      cellContent += `<div class="cal-ore">${fmtH(c.oreN)}</div>`;
+      if (c.oreS > 0) {
+        cellContent += `<div class="cal-straord" style="color:${TIPI[c.tipo].color}">${fmtH(c.oreS)} str. +${TIPI[c.tipo].magg}%</div>`;
+      }
+      if (e.trasferta) {
+        cellContent += `<div class="cal-tra">📍 ${e.loc?.name || 'Trasferta'}</div>`;
+      }
+      cellContent += `<div class="cal-tot">${fmtE(c.total)}</div>`;
+    }
+    calCells += `<td class="cal-cell${isFestivo?' festivo':''}${!entry?' nowork':''}">${cellContent}</td>`;
+
+    // Fine settimana
+    if (dow === 6 || d === daysInMonth) {
+      const remaining = 6 - dow;
+      for (let r = 0; r < remaining && d === daysInMonth; r++) {
+        calCells += `<td class="cal-cell empty"></td>`;
+      }
+    }
+  }
+
+  // Costruisce righe tabella
+  const totalCells = startDow + daysInMonth;
+  const totalRows  = Math.ceil(totalCells / 7);
+  let tableRows = '';
+  const cells = calCells.match(/<td[\s\S]*?<\/td>/g) || [];
+  for (let r = 0; r < totalRows; r++) {
+    tableRows += '<tr>' + cells.slice(r*7, r*7+7).join('') + '</tr>';
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Timbrature ${MESI[m]} ${y}</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, Arial, sans-serif; font-size: 10px; color: #1C1C1E; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; border-bottom: 2px solid #007AFF; padding-bottom: 6px; }
+  .header h1 { font-size: 22px; font-weight: 700; color: #007AFF; }
+  .header .sub { font-size: 11px; color: #6C6C70; }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { background: #007AFF; color: white; font-size: 10px; font-weight: 600;
+       padding: 5px 4px; text-align: center; }
+  th:nth-child(6), th:nth-child(7) { background: #5856D6; }
+
+  .cal-cell { border: .5px solid #D1D1D6; vertical-align: top; padding: 4px 5px;
+               height: 90px; width: 14.28%; }
+  .cal-cell.empty { background: #F9F9F9; }
+  .cal-cell.festivo { background: #FFF5F5; }
+  .cal-cell.nowork { background: #FAFAFA; }
+
+  .cal-day { font-size: 13px; font-weight: 700; color: #1C1C1E; margin-bottom: 2px; }
+  .cal-cell.festivo .cal-day { color: #5856D6; }
+  .cal-time { font-size: 9px; color: #6C6C70; }
+  .cal-ore  { font-size: 11px; font-weight: 600; color: #1C1C1E; margin-top: 2px; }
+  .cal-straord { font-size: 9px; font-weight: 500; margin-top: 1px; }
+  .cal-tra  { font-size: 8px; color: #34C759; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-tot  { font-size: 11px; font-weight: 700; color: #34C759; margin-top: 3px; }
+
+  .summary { display: grid; grid-template-columns: repeat(6,1fr); gap: 6px; margin-top: 8px; }
+  .sum-card { background: #F2F2F7; border-radius: 6px; padding: 6px 8px; }
+  .sum-card.accent { background: #007AFF; }
+  .sum-label { font-size: 8px; color: #6C6C70; margin-bottom: 2px; }
+  .sum-val   { font-size: 14px; font-weight: 700; color: #1C1C1E; }
+  .sum-card.accent .sum-label { color: rgba(255,255,255,.8); }
+  .sum-card.accent .sum-val   { color: white; }
+
+  .footer { margin-top: 6px; font-size: 8px; color: #AEAEB2; text-align: right; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Timbrature ${MESI[m]} ${y}</h1>
+  <div class="sub">Ecoprogram Flotte — Pelizzaro Nicholas<br>Generato il ${new Date().toLocaleDateString('it-IT')}</div>
+</div>
+
+<table>
+  <thead><tr>${DOW_LABELS.map(d => `<th>${d}</th>`).join('')}</tr></thead>
+  <tbody>${tableRows}</tbody>
+</table>
+
+<div class="summary">
+  <div class="sum-card"><div class="sum-label">Giorni lavorati</div><div class="sum-val">${giorni}</div></div>
+  <div class="sum-card"><div class="sum-label">Ore nette totali</div><div class="sum-val">${fmtH(totOreN)}</div></div>
+  <div class="sum-card"><div class="sum-label">Ore straordinarie</div><div class="sum-val" style="color:#FF9500">${fmtH(totOreS)}</div></div>
+  <div class="sum-card"><div class="sum-label">Importo straord.</div><div class="sum-val">${fmtE(totEuroS)}</div></div>
+  <div class="sum-card"><div class="sum-label">Trasferte</div><div class="sum-val">${fmtE(totEuroT)}</div></div>
+  <div class="sum-card accent"><div class="sum-label">Totale da liquidare</div><div class="sum-val">${fmtE(totEuroS+totEuroT)}</div></div>
+</div>
+
+<div class="footer">Tutti gli importi sono lordi — CCNL Trasporto, Spedizione Merci e Logistica — Livello 3</div>
+
+<script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
