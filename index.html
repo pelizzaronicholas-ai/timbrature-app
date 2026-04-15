@@ -418,6 +418,48 @@ input::placeholder { color: var(--txt3); }
     <div id="summary-content"></div>
   </section>
 
+  <!-- ── TAB: IMPOSTAZIONI ─────────────────────────────────────── -->
+  <section id="tab-impostazioni" class="tab">
+    <div class="card-section-title">Sincronizzazione Cloud</div>
+    <div class="card">
+      <div class="frow" style="flex-direction:column;align-items:flex-start;gap:8px;">
+        <label style="font-size:15px;">GitHub Token</label>
+        <input type="password" id="cfg-token" placeholder="ghp_xxxxxxxxxxxx"
+          style="width:100%;text-align:left;border:.5px solid var(--sep);border-radius:8px;padding:8px 10px;font-size:14px;font-family:monospace;"
+          oninput="S.cfg.token=this.value">
+        <span style="font-size:12px;color:var(--txt3);">Token con scope <b>gist</b> — <a href="https://github.com/settings/tokens/new?scopes=gist&description=Timbrature+App" target="_blank" style="color:var(--blue);">Crea qui</a></span>
+      </div>
+      <div class="frow" style="flex-direction:column;align-items:flex-start;gap:8px;">
+        <label style="font-size:15px;">Gist ID</label>
+        <input type="text" id="cfg-gist" placeholder="Lascia vuoto per crearne uno nuovo"
+          style="width:100%;text-align:left;border:.5px solid var(--sep);border-radius:8px;padding:8px 10px;font-size:14px;font-family:monospace;"
+          oninput="S.cfg.gistId=this.value">
+      </div>
+      <div class="frow">
+        <button class="save-btn" style="margin-top:0;" onclick="saveGistConfig()">Salva e connetti</button>
+      </div>
+    </div>
+
+    <div class="card-section-title">Stato Sync</div>
+    <div class="card" id="sync-status-card">
+      <div class="frow"><span id="sync-status-txt" style="font-size:14px;color:var(--txt2);">Non configurato</span></div>
+    </div>
+
+    <div class="card-section-title">Azioni</div>
+    <div class="card">
+      <div class="frow" style="flex-direction:column;gap:10px;align-items:stretch;">
+        <button class="export-btn" onclick="syncPush()">☁️ Carica su cloud adesso</button>
+        <button class="export-btn" onclick="syncPull()">⬇️ Scarica da cloud adesso</button>
+        <button class="export-btn" onclick="createBackup()">💾 Crea backup manuale</button>
+      </div>
+    </div>
+
+    <div class="card-section-title">Backup disponibili</div>
+    <div id="backup-list" class="card">
+      <div class="frow"><span style="font-size:14px;color:var(--txt3);">Nessun backup trovato</span></div>
+    </div>
+  </section>
+
 </div><!-- /main -->
 
 <!-- BOTTOM TAB BAR -->
@@ -443,6 +485,13 @@ input::placeholder { color: var(--txt3); }
       <path d="M4 20V14M8 20V10M12 20V6M16 20V12M20 20V8"/>
     </svg>
     <span>Riepilogo</span>
+  </button>
+  <button class="tb-btn" data-tab="impostazioni" onclick="switchTab('impostazioni')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+    </svg>
+    <span>Sync</span>
   </button>
 </nav>
 
@@ -523,6 +572,10 @@ const S = {
   form:     null,
   editId:   null,
   editForm: null,
+  cfg: {
+    token:  localStorage.getItem('gist_token') || '',
+    gistId: localStorage.getItem('gist_id')    || '',
+  },
 };
 
 function makeForm(date) {
@@ -548,6 +601,221 @@ function loadEntries() {
 }
 function saveStorage() {
   localStorage.setItem('timbrature_entries', JSON.stringify(S.entries));
+  // Sync automatica in background senza bloccare l'UI
+  if (S.cfg.token && S.cfg.gistId) {
+    syncPush(true); // silent=true
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GIST SYNC
+// ─────────────────────────────────────────────────────────────────────────────
+const GIST_FILE      = 'timbrature_data.json';
+const GIST_FILE_BAK  = () => `backup_${todayStr()}.json`;
+
+function gistHeaders() {
+  return {
+    'Authorization': `token ${S.cfg.token}`,
+    'Content-Type':  'application/json',
+    'Accept':        'application/vnd.github+json',
+  };
+}
+
+// Salva config e crea Gist se non esiste
+async function saveGistConfig() {
+  const token  = document.getElementById('cfg-token').value.trim();
+  const gistId = document.getElementById('cfg-gist').value.trim();
+  if (!token) { toast('Inserisci il token'); return; }
+
+  S.cfg.token  = token;
+  S.cfg.gistId = gistId;
+  localStorage.setItem('gist_token', token);
+
+  setSyncStatus('⏳ Connessione in corso…', 'var(--txt2)');
+
+  try {
+    if (!gistId) {
+      // Crea nuovo Gist
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: gistHeaders(),
+        body: JSON.stringify({
+          description: 'Timbrature Ecoprogram — dati sincronizzati',
+          public: false,
+          files: {
+            [GIST_FILE]: { content: JSON.stringify(S.entries, null, 2) }
+          }
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      S.cfg.gistId = data.id;
+      localStorage.setItem('gist_id', data.id);
+      document.getElementById('cfg-gist').value = data.id;
+      setSyncStatus('✅ Gist creato e connesso — ID: ' + data.id, 'var(--green)');
+      toast('Cloud configurato ✓');
+    } else {
+      // Verifica Gist esistente
+      const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: gistHeaders() });
+      if (!res.ok) throw new Error('Gist non trovato');
+      localStorage.setItem('gist_id', gistId);
+      setSyncStatus('✅ Connesso — Gist ID: ' + gistId, 'var(--green)');
+      toast('Connesso ✓');
+    }
+    renderImpostazioni();
+  } catch(e) {
+    setSyncStatus('❌ Errore: ' + e.message, 'var(--red)');
+    toast('Errore connessione');
+  }
+}
+
+// Push dati → Gist
+async function syncPush(silent = false) {
+  if (!S.cfg.token || !S.cfg.gistId) {
+    if (!silent) toast('Configura prima il token Gist');
+    return;
+  }
+  try {
+    const files = {
+      [GIST_FILE]: { content: JSON.stringify(S.entries, null, 2) }
+    };
+    // Backup giornaliero: aggiunge file con data se non esiste già oggi
+    const lastBak = localStorage.getItem('last_backup_date');
+    if (lastBak !== todayStr()) {
+      files[GIST_FILE_BAK()] = { content: JSON.stringify({ date: todayStr(), entries: S.entries }, null, 2) };
+    }
+    const res = await fetch(`https://api.github.com/gists/${S.cfg.gistId}`, {
+      method: 'PATCH',
+      headers: gistHeaders(),
+      body: JSON.stringify({ files })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+    if (!silent) {
+      setSyncStatus(`✅ Caricato alle ${ts}`, 'var(--green)');
+      toast('Dati caricati sul cloud ✓');
+    }
+    // Segna backup fatto oggi
+    if (lastBak !== todayStr()) {
+      localStorage.setItem('last_backup_date', todayStr());
+      if (!silent) renderImpostazioni();
+    }
+  } catch(e) {
+    if (!silent) { setSyncStatus('❌ Upload fallito: ' + e.message, 'var(--red)'); toast('Errore upload'); }
+  }
+}
+
+// Pull dati ← Gist
+async function syncPull() {
+  if (!S.cfg.token || !S.cfg.gistId) { toast('Configura prima il token Gist'); return; }
+  setSyncStatus('⏳ Scaricamento…', 'var(--txt2)');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${S.cfg.gistId}`, { headers: gistHeaders() });
+    if (!res.ok) throw new Error('Gist non raggiungibile');
+    const data = await res.json();
+    const file = data.files[GIST_FILE];
+    if (!file) throw new Error('File dati non trovato nel Gist');
+    const remote = JSON.parse(file.content);
+    // Merge: vince la versione più recente per ID
+    const merged = mergeEntries(S.entries, remote);
+    S.entries = merged;
+    saveStorage();
+    renderRegistro();
+    const ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+    setSyncStatus(`✅ Sincronizzato alle ${ts} — ${merged.length} voci`, 'var(--green)');
+    toast(`Sync completata — ${merged.length} voci ✓`);
+    renderImpostazioni();
+  } catch(e) {
+    setSyncStatus('❌ Download fallito: ' + e.message, 'var(--red)');
+    toast('Errore download');
+  }
+}
+
+// Merge intelligente: unisce locale + remoto, deduplicato per ID, vince data più recente
+function mergeEntries(local, remote) {
+  const map = new Map();
+  [...local, ...remote].forEach(e => {
+    if (!map.has(e.id) || e.date > map.get(e.id).date) map.set(e.id, e);
+  });
+  return [...map.values()].sort((a,b) => a.date < b.date ? 1 : -1);
+}
+
+// Crea backup manuale
+async function createBackup() {
+  if (!S.cfg.token || !S.cfg.gistId) { toast('Configura prima il token Gist'); return; }
+  const bakName = `backup_${todayStr()}_manual.json`;
+  try {
+    const res = await fetch(`https://api.github.com/gists/${S.cfg.gistId}`, {
+      method: 'PATCH',
+      headers: gistHeaders(),
+      body: JSON.stringify({
+        files: { [bakName]: { content: JSON.stringify({ date: todayStr(), entries: S.entries }, null, 2) } }
+      })
+    });
+    if (!res.ok) throw new Error();
+    toast('Backup manuale creato ✓');
+    renderImpostazioni();
+  } catch { toast('Errore backup'); }
+}
+
+// Aggiorna testo stato sync
+function setSyncStatus(msg, color) {
+  const el = document.getElementById('sync-status-txt');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+
+// Render tab impostazioni
+async function renderImpostazioni() {
+  // Popola campi se già configurati
+  const ti = document.getElementById('cfg-token');
+  const gi = document.getElementById('cfg-gist');
+  if (ti && S.cfg.token) ti.value = S.cfg.token;
+  if (gi && S.cfg.gistId) gi.value = S.cfg.gistId;
+
+  if (!S.cfg.token || !S.cfg.gistId) {
+    setSyncStatus('Non configurato', 'var(--txt3)');
+    return;
+  }
+
+  // Carica lista backup dal Gist
+  try {
+    const res = await fetch(`https://api.github.com/gists/${S.cfg.gistId}`, { headers: gistHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const backups = Object.keys(data.files)
+      .filter(f => f.startsWith('backup_'))
+      .sort().reverse();
+
+    const el = document.getElementById('backup-list');
+    if (!backups.length) {
+      el.innerHTML = '<div class="frow"><span style="font-size:14px;color:var(--txt3);">Nessun backup trovato</span></div>';
+    } else {
+      el.innerHTML = backups.map(name => {
+        const label = name.replace('backup_','').replace('.json','').replace('_manual',' (manuale)');
+        const url = data.files[name].raw_url;
+        return `<div class="frow">
+          <span style="font-size:14px;">${label}</span>
+          <button class="now-btn" onclick="restoreBackup('${url}','${name}')">Ripristina</button>
+        </div>`;
+      }).join('');
+    }
+    const ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+    setSyncStatus(`✅ Connesso — ultimo aggiornamento ${ts}`, 'var(--green)');
+  } catch { setSyncStatus('⚠️ Impossibile raggiungere il Gist', 'var(--orange)'); }
+}
+
+// Ripristina da backup
+async function restoreBackup(url, name) {
+  if (!confirm(`Ripristinare il backup "${name}"?\nI dati attuali verranno sostituiti.`)) return;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const entries = data.entries || data; // supporta sia formato {date,entries} che array diretto
+    S.entries = Array.isArray(entries) ? entries : [];
+    saveStorage();
+    renderRegistro();
+    toast('Backup ripristinato ✓');
+  } catch { toast('Errore ripristino'); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -621,6 +889,9 @@ function switchTab(name) {
   } else if (name === 'riepilogo') {
     sub.textContent = '';
     renderRiepilogo();
+  } else if (name === 'impostazioni') {
+    sub.textContent = '';
+    renderImpostazioni();
   }
 }
 
@@ -1330,6 +1601,11 @@ S.entries = loadEntries();
 initSelects();
 initForm();
 document.getElementById('hdr-sub').textContent = fmtDate(todayStr());
+
+// Pull automatico all'avvio se già configurato
+if (S.cfg.token && S.cfg.gistId) {
+  syncPull().catch(() => {});
+}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
