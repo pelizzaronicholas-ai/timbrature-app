@@ -1,4 +1,4 @@
-const CACHE = 'timbrature-v2';
+const CACHE = 'timbrature-v3';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Non cachare mai chiamate API esterne (GitHub Gist, Nominatim, ecc.)
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
       const clone = res.clone();
