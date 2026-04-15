@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Timbrature">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Timbrature</title>
+<style>
+:root {
+  --bg:       #F2F2F7;
+  --surface:  #FFFFFF;
+  --surface2: #F2F2F7;
+  --sep:      rgba(60,60,67,.12);
+  --txt:      #1C1C1E;
+  --txt2:     #6C6C70;
+  --txt3:     #AEAEB2;
+  --blue:     #007AFF;
+  --green:    #34C759;
+  --orange:   #FF9500;
+  --red:      #FF3B30;
+  --purple:   #5856D6;
+  --radius:   12px;
+  --tab-h:    calc(56px + env(safe-area-inset-bottom));
+  --hdr-h:    calc(56px + env(safe-area-inset-top));
+  --pad:      16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; color: var(--txt); }
+body { overscroll-behavior: none; }
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+#hdr {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--hdr-h); padding-top: env(safe-area-inset-top);
+  background: rgba(255,255,255,.92); backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid var(--sep);
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-left: var(--pad); padding-right: var(--pad); padding-bottom: 10px;
+}
+#hdr-left { display: flex; align-items: center; gap: 9px; }
+#hdr-logo {
+  width: 30px; height: 30px; flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,122,255,.25));
+}
+#hdr-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+#hdr-sub   { font-size: 13px; color: var(--txt2); }
+
+/* ── MAIN SCROLL AREA ────────────────────────────────────────────── */
+#main {
+  position: fixed; top: var(--hdr-h); bottom: var(--tab-h);
+  left: 0; right: 0; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── TABS ────────────────────────────────────────────────────────── */
+.tab { display: none; padding: var(--pad); padding-bottom: 24px; min-height: 100%; }
+.tab.active { display: block; }
+
+/* ── BOTTOM TAB BAR ──────────────────────────────────────────────── */
+#tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  height: var(--tab-h); padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(255,255,255,.92); backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: .5px solid var(--sep);
+  display: flex;
+}
+.tb-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 3px; background: none; border: none;
+  font-size: 10px; color: var(--txt3); cursor: pointer; padding-top: 8px;
+  transition: color .15s;
+}
+.tb-btn.active { color: var(--blue); }
+.tb-btn svg { width: 24px; height: 24px; }
+
+/* ── CARDS ───────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: 16px;
+}
+.card-section-title {
+  font-size: 13px; font-weight: 600; color: var(--txt2); text-transform: uppercase;
+  letter-spacing: .04em; margin: 20px 0 8px; padding-left: 4px;
+}
+
+/* ── FORM ROWS ───────────────────────────────────────────────────── */
+.frow {
+  display: flex; align-items: center; padding: 12px var(--pad);
+  border-bottom: .5px solid var(--sep); min-height: 48px;
+}
+.frow:last-child { border-bottom: none; }
+.frow label { font-size: 15px; color: var(--txt); min-width: 80px; flex-shrink: 0; }
+.frow .fval { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+input[type="date"], input[type="time"], input[type="number"], input[type="text"], select, textarea {
+  font-family: inherit; font-size: 15px; color: var(--txt);
+  background: transparent; border: none; outline: none; text-align: right;
+}
+input[type="date"], input[type="time"] { color-scheme: light; }
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+select { -webkit-appearance: none; text-align: right; }
+textarea { width: 100%; resize: none; text-align: left; font-size: 14px; line-height: 1.5; }
+input::placeholder { color: var(--txt3); }
+
+/* ── NOW BUTTON ──────────────────────────────────────────────────── */
+.now-btn {
+  font-size: 13px; font-weight: 500; color: var(--blue);
+  background: rgba(0,122,255,.1); border: none; border-radius: 8px;
+  padding: 4px 10px; cursor: pointer; white-space: nowrap;
+}
+.now-btn:active { background: rgba(0,122,255,.2); }
+
+/* ── SEGMENTED CONTROL (pausa) ───────────────────────────────────── */
+.seg { display: flex; background: rgba(118,118,128,.12); border-radius: 9px; padding: 2px; gap: 2px; width: 100%; }
+.seg-btn {
+  flex: 1; font-size: 13px; font-weight: 500; color: var(--txt2);
+  background: none; border: none; border-radius: 7px;
+  padding: 6px 4px; cursor: pointer; transition: all .2s;
+}
+.seg-btn.active { background: var(--surface); color: var(--txt); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+/* ── TOGGLE SWITCH ───────────────────────────────────────────────── */
+.toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-track {
+  position: absolute; inset: 0; border-radius: 15.5px;
+  background: var(--sep); transition: background .2s;
+}
+.toggle input:checked ~ .toggle-track { background: var(--green); }
+.toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 27px; height: 27px; border-radius: 50%;
+  background: white; box-shadow: 0 2px 4px rgba(0,0,0,.3);
+  transition: transform .2s;
+}
+.toggle input:checked ~ .toggle-track ~ .toggle-thumb { transform: translateX(20px); }
+
+/* ── GEO BUTTON ──────────────────────────────────────────────────── */
+.geo-btn {
+  font-size: 20px; background: none; border: none; cursor: pointer;
+  padding: 4px; flex-shrink: 0;
+}
+.geo-btn:active { transform: scale(.9); }
+
+/* ── PREVIEW CARD ────────────────────────────────────────────────── */
+#preview { padding: var(--pad); }
+.preview-empty { text-align: center; color: var(--txt3); font-size: 14px; padding: 8px 0; }
+.preview-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+.preview-label { font-size: 14px; color: var(--txt2); }
+.preview-val   { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.preview-divider { border: none; border-top: .5px solid var(--sep); margin: 8px 0; }
+.preview-total-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0 0; }
+.preview-total-label { font-size: 16px; font-weight: 600; }
+.preview-total-val   { font-size: 20px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600; border-radius: 6px;
+  padding: 2px 7px; color: white;
+}
+
+/* ── SAVE BUTTON ─────────────────────────────────────────────────── */
+.save-btn {
+  display: block; width: 100%; padding: 16px; margin-top: 4px;
+  background: var(--blue); color: white; border: none; border-radius: var(--radius);
+  font-size: 17px; font-weight: 600; font-family: inherit; cursor: pointer;
+  transition: opacity .15s;
+}
+.save-btn:active { opacity: .85; }
+.save-btn:disabled { background: var(--txt3); cursor: default; }
+
+/* ── FILTER BAR ──────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 8px; margin-bottom: 16px; align-items: center;
+}
+.filter-bar select {
+  flex: 1; background: var(--surface); border-radius: var(--radius);
+  padding: 10px 12px; font-size: 15px; text-align: left;
+  border: .5px solid var(--sep); -webkit-appearance: none;
+  color: var(--txt);
+}
+
+/* ── ENTRY CARDS ─────────────────────────────────────────────────── */
+.entry-card {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 14px var(--pad); margin-bottom: 10px; cursor: pointer;
+  active-state: default;
+}
+.entry-card:active { opacity: .7; }
+.entry-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.entry-date { font-size: 15px; font-weight: 600; }
+.entry-dow  { font-size: 13px; color: var(--txt2); margin-top: 1px; }
+.entry-time { font-size: 14px; color: var(--txt2); text-align: right; }
+.entry-mid  { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.entry-hours { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.entry-hours span { font-size: 13px; font-weight: 400; color: var(--txt2); }
+.entry-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.entry-note { font-size: 13px; color: var(--txt2); flex: 1; margin-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-euro { font-size: 15px; font-weight: 600; color: var(--green); }
+.empty-state { text-align: center; padding: 48px 24px; color: var(--txt3); }
+.empty-state .e-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 15px; }
+
+/* ── SUMMARY CARDS ───────────────────────────────────────────────── */
+.sum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.sum-card { background: var(--surface); border-radius: var(--radius); padding: 14px; }
+.sum-card.full { grid-column: 1 / -1; }
+.sum-card.accent { background: var(--blue); }
+.sum-card.accent .sum-label { color: rgba(255,255,255,.8); }
+.sum-card.accent .sum-val { color: white; }
+.sum-label { font-size: 12px; color: var(--txt2); margin-bottom: 4px; }
+.sum-val   { font-size: 24px; font-weight: 700; color: var(--txt); font-variant-numeric: tabular-nums; }
+.sum-sub   { font-size: 12px; color: var(--txt2); margin-top: 2px; }
+
+/* ── DETAIL TABLE ────────────────────────────────────────────────── */
+.detail-table { background: var(--surface); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+.dt-row { display: flex; justify-content: space-between; align-items: center; padding: 12px var(--pad); border-bottom: .5px solid var(--sep); }
+.dt-row:last-child { border-bottom: none; }
+.dt-label { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.dt-val   { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── EXPORT BUTTON ───────────────────────────────────────────────── */
+.export-btn {
+  display: block; width: 100%; padding: 14px;
+  background: var(--surface); color: var(--blue); border: .5px solid var(--sep);
+  border-radius: var(--radius); font-size: 15px; font-weight: 500;
+  font-family: inherit; cursor: pointer; margin-top: 4px;
+}
+.export-btn:active { background: var(--surface2); }
+
+/* ── EDIT VIEW (slides in) ───────────────────────────────────────── */
+#edit-view {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 24px;
+}
+#edit-view.open { transform: translateX(0); }
+#edit-hdr {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  height: var(--hdr-h); padding-top: env(safe-area-inset-top);
+  padding: env(safe-area-inset-top) var(--pad) 10px;
+  background: rgba(255,255,255,.92); backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid var(--sep);
+  position: sticky; top: 0; z-index: 10;
+}
+.back-btn { font-size: 17px; color: var(--blue); background: none; border: none; cursor: pointer; padding: 0; }
+.del-btn  { font-size: 15px; color: var(--red);  background: none; border: none; cursor: pointer; padding: 0; }
+#edit-body { padding: var(--pad); }
+
+/* ── TOAST ───────────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: calc(var(--tab-h) + 12px); left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,.82); color: white;
+  padding: 10px 18px; border-radius: 20px;
+  font-size: 14px; font-weight: 500; pointer-events: none;
+  opacity: 0; transition: opacity .2s, transform .2s; z-index: 500;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── MONTH CHIP ──────────────────────────────────────────────────── */
+#oggi-month { font-size: 13px; color: var(--txt2); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="hdr">
+  <div id="hdr-left">
+    <svg id="hdr-logo" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="30" height="30" rx="8" fill="#007AFF"/>
+      <circle cx="15" cy="15.5" r="9" stroke="white" stroke-width="1.6"/>
+      <line x1="15" y1="15.5" x2="15" y2="10.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="15" y1="15.5" x2="18.5" y2="17.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="15" cy="15.5" r="1.2" fill="white"/>
+      <line x1="15" y1="5" x2="15" y2="3" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="23" cy="15.5" r=".8" fill="rgba(255,255,255,.5)"/>
+      <circle cx="7"  cy="15.5" r=".8" fill="rgba(255,255,255,.5)"/>
+      <circle cx="15" cy="24"   r=".8" fill="rgba(255,255,255,.5)"/>
+    </svg>
+    <span id="hdr-title">Timbrature</span>
+  </div>
+  <span id="hdr-sub"></span>
+</header>
+
+<!-- MAIN CONTENT -->
+<div id="main">
+
+  <!-- ── TAB: OGGI ─────────────────────────────────────────────── -->
+  <section id="tab-oggi" class="tab active">
+    <div class="card-section-title">Giornata lavorativa</div>
+
+    <div class="card" id="form-main">
+      <!-- Data -->
+      <div class="frow">
+        <label>Data</label>
+        <div class="fval"><input type="date" id="f-date" onchange="onFormChange()"></div>
+      </div>
+      <!-- Inizio -->
+      <div class="frow">
+        <label>Inizio</label>
+        <div class="fval">
+          <button class="now-btn" onclick="setNow('start')">Ora attuale</button>
+          <input type="time" id="f-start" onchange="onFormChange()">
+        </div>
+      </div>
+      <!-- Fine -->
+      <div class="frow">
+        <label>Fine</label>
+        <div class="fval">
+          <button class="now-btn" onclick="setNow('end')">Ora attuale</button>
+          <input type="time" id="f-end" onchange="onFormChange()">
+        </div>
+      </div>
+      <!-- Pausa -->
+      <div class="frow" style="flex-direction:column; align-items:stretch; gap:10px;">
+        <label>Pausa</label>
+        <div class="seg" id="break-seg">
+          <button class="seg-btn" data-val="0"  onclick="setBreak(0)">Nessuna</button>
+          <button class="seg-btn active" data-val="30" onclick="setBreak(30)">30 min</button>
+          <button class="seg-btn" data-val="45" onclick="setBreak(45)">45 min</button>
+          <button class="seg-btn" data-val="60" onclick="setBreak(60)">1 ora</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:14px; color:var(--txt2);">Personalizzata:</span>
+          <input type="number" id="f-break-custom" min="0" max="480" placeholder="0" style="width:56px; text-align:center; border:.5px solid var(--sep); border-radius:8px; padding:6px 8px;" onchange="setBreakCustom(this.value)">
+          <span style="font-size:14px; color:var(--txt2);">min</span>
+        </div>
+      </div>
+      <!-- Tipo straordinario -->
+      <div class="frow">
+        <label>Tipo</label>
+        <div class="fval">
+          <select id="f-tipo" onchange="onFormChange()">
+            <option value="auto">Auto</option>
+            <option value="0">Feriale +25%</option>
+            <option value="1">Feriale nott. +50%</option>
+            <option value="2">Festivo +50%</option>
+            <option value="3">Festivo nott. +65%</option>
+          </select>
+        </div>
+      </div>
+      <!-- Note -->
+      <div class="frow">
+        <label>Note</label>
+        <div class="fval"><input type="text" id="f-note" placeholder="Opzionale" onchange="onFormChange()"></div>
+      </div>
+    </div>
+
+    <!-- Trasferta -->
+    <div class="card-section-title">Trasferta</div>
+    <div class="card">
+      <div class="frow">
+        <label>Trasferta</label>
+        <div class="fval">
+          <label class="toggle">
+            <input type="checkbox" id="f-trasferta" onchange="toggleTrasferta(this.checked)">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+      <div id="tra-section" style="display:none">
+        <div class="frow">
+          <label>Luogo</label>
+          <div class="fval">
+            <input type="text" id="f-loc" placeholder="Città / indirizzo" oninput="S.form.loc={name:this.value,lat:null,lng:null}">
+            <button class="geo-btn" onclick="getGeo()" title="Geolocalizza">📍</button>
+          </div>
+        </div>
+        <div class="frow">
+          <label>Tariffa</label>
+          <div class="fval" style="gap:4px;">
+            <span style="color:var(--txt2);">€</span>
+            <input type="number" id="f-tariff" value="22" min="0" step="0.5" style="width:60px;" onchange="S.form.tariff=parseFloat(this.value)||22; updatePreview()">
+            <span style="color:var(--txt2);">/giorno</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card-section-title">Anteprima</div>
+    <div class="card" id="preview"></div>
+
+    <button class="save-btn" id="save-btn" onclick="saveEntry()">Salva giornata</button>
+  </section>
+
+  <!-- ── TAB: REGISTRO ──────────────────────────────────────────── -->
+  <section id="tab-registro" class="tab">
+    <div class="filter-bar">
+      <select id="reg-m" onchange="renderRegistro()"></select>
+      <select id="reg-y" onchange="renderRegistro()"></select>
+    </div>
+    <div id="entries-list"></div>
+  </section>
+
+  <!-- ── TAB: RIEPILOGO ────────────────────────────────────────── -->
+  <section id="tab-riepilogo" class="tab">
+    <div class="filter-bar">
+      <select id="sum-m" onchange="renderRiepilogo()"></select>
+      <select id="sum-y" onchange="renderRiepilogo()"></select>
+    </div>
+    <div id="summary-content"></div>
+  </section>
+
+</div><!-- /main -->
+
+<!-- BOTTOM TAB BAR -->
+<nav id="tab-bar">
+  <button class="tb-btn active" data-tab="oggi" onclick="switchTab('oggi')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <rect x="3" y="4" width="18" height="17" rx="3"/>
+      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="9" x2="21" y2="9"/>
+    </svg>
+    <span>Oggi</span>
+  </button>
+  <button class="tb-btn" data-tab="registro" onclick="switchTab('registro')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <path d="M4 6h16M4 10h16M4 14h10"/>
+      <circle cx="17" cy="17" r="4"/>
+      <path d="M15.5 17h3M17 15.5v3"/>
+    </svg>
+    <span>Registro</span>
+  </button>
+  <button class="tb-btn" data-tab="riepilogo" onclick="switchTab('riepilogo')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <path d="M4 20V14M8 20V10M12 20V6M16 20V12M20 20V8"/>
+    </svg>
+    <span>Riepilogo</span>
+  </button>
+</nav>
+
+<!-- EDIT VIEW (slide-in) -->
+<div id="edit-view">
+  <div id="edit-hdr">
+    <button class="back-btn" onclick="closeEdit()">← Indietro</button>
+    <span style="font-size:17px; font-weight:600;">Modifica</span>
+    <button class="del-btn" onclick="deleteEditing()">Elimina</button>
+  </div>
+  <div id="edit-body"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIGURAZIONE CCNL TRASPORTO L3 — ECOPROGRAM FLOTTE
+// Retribuzione: €1946.84 / 173 (divisore contrattuale) = €11.25/h
+// ─────────────────────────────────────────────────────────────────────────────
+const CFG = {
+  pagaBase:    11.25,
+  oreStd:      8,
+  traTariff:   22,
+};
+
+// Sede operativa: Via Santi 77, Casier (TV)
+const SEDE = { lat: 45.6402, lng: 12.2155, raggio: 600 }; // raggio in metri
+
+// Distanza in metri tra due coordinate (Haversine)
+function distanzaM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Risolve nome luogo da coordinate via Nominatim
+async function reverseGeocode(lat, lng) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+    const j = await r.json();
+    return j.address?.city || j.address?.town || j.address?.village || j.address?.county || j.display_name.split(',')[0];
+  } catch {
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+}
+
+// Controlla se la posizione è fuori sede; restituisce { ok, name, lat, lng, distanza }
+async function checkGeoTrasferta() {
+  const pos = await new Promise((res, rej) =>
+    navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 12000 })
+  );
+  const { latitude: lat, longitude: lng } = pos.coords;
+  const dist = distanzaM(lat, lng, SEDE.lat, SEDE.lng);
+  const name = await reverseGeocode(lat, lng);
+  const inSede = dist <= SEDE.raggio;
+  return { lat, lng, name, dist: Math.round(dist), inSede };
+}
+const TIPI = [
+  { label: 'Feriale',          magg: 25, color: '#007AFF' },
+  { label: 'Feriale notturno', magg: 50, color: '#5856D6' },
+  { label: 'Festivo',          magg: 50, color: '#FF9500' },
+  { label: 'Festivo nott.',    magg: 65, color: '#FF3B30' },
+];
+const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+              'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const DOW  = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+const S = {
+  tab:      'oggi',
+  entries:  [],
+  form:     null,
+  editId:   null,
+  editForm: null,
+};
+
+function makeForm(date) {
+  return {
+    date:     date || todayStr(),
+    start:    '',
+    end:      '',
+    breakMin: 30,
+    note:     '',
+    trasferta: false,
+    loc:      null,   // { name, lat, lng }
+    tariff:   CFG.traTariff,
+    tipoOvr:  null,   // null = auto
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STORAGE
+// ─────────────────────────────────────────────────────────────────────────────
+function loadEntries() {
+  try { return JSON.parse(localStorage.getItem('timbrature_entries') || '[]'); }
+  catch { return []; }
+}
+function saveStorage() {
+  localStorage.setItem('timbrature_entries', JSON.stringify(S.entries));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALCOLI
+// ─────────────────────────────────────────────────────────────────────────────
+function calc(entry) {
+  if (!entry.start || !entry.end) return null;
+  const sm  = toMin(entry.start), em = toMin(entry.end);
+  let dur = em - sm;
+  if (dur <= 0) dur += 1440;
+  const net  = Math.max(0, dur - (entry.breakMin || 0));
+  const oreN = net / 60;
+  const oreS = Math.max(0, oreN - CFG.oreStd);
+  const tipo = entry.tipoOvr != null ? entry.tipoOvr : autoTipo(entry.date, entry.start, entry.end);
+  const euroS = oreS * CFG.pagaBase * (1 + TIPI[tipo].magg / 100);
+  const euroT = entry.trasferta ? (entry.tariff || CFG.traTariff) : 0;
+  return { oreN, oreS, tipo, euroS, euroT, total: euroS + euroT };
+}
+
+function autoTipo(date, start, end) {
+  const d   = new Date(date + 'T12:00:00');
+  const dow  = d.getDay();
+  const fest = dow === 0 || dow === 6;
+  const sh   = parseInt(start), eh = parseInt(end);
+  const nott = sh >= 22 || sh < 6 || eh > 22;
+  if (fest && nott) return 3;
+  if (fest)         return 2;
+  if (nott)         return 1;
+  return 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function toMin(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+function todayStr() { const d=new Date(); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function nowStr()   { const d=new Date(); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+function p2(n)      { return String(n).padStart(2,'0'); }
+function fmtH(n)    { return fmtN(n,2)+' h'; }
+function fmtE(n)    { return '€ '+fmtN(n,2); }
+function fmtN(n,d=2){ return n.toFixed(d).replace('.',','); }
+function fmtDate(s) {
+  const d=new Date(s+'T12:00:00');
+  return `${p2(d.getDate())} ${MESI[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
+}
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+
+function toast(msg, dur=2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  S.tab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tb-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+
+  const sub = document.getElementById('hdr-sub');
+  if (name === 'oggi') {
+    sub.textContent = fmtDate(S.form.date || todayStr());
+    updatePreview();
+  } else if (name === 'registro') {
+    sub.textContent = '';
+    renderRegistro();
+  } else if (name === 'riepilogo') {
+    sub.textContent = '';
+    renderRiepilogo();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB OGGI — FORM
+// ─────────────────────────────────────────────────────────────────────────────
+function initForm() {
+  S.form = makeForm();
+  const d = document.getElementById('f-date');
+  d.value = S.form.date;
+  document.getElementById('f-start').value = '';
+  document.getElementById('f-end').value   = '';
+  document.getElementById('f-note').value  = '';
+  document.getElementById('f-tariff').value = CFG.traTariff;
+  document.getElementById('f-trasferta').checked = false;
+  document.getElementById('tra-section').style.display = 'none';
+  document.getElementById('f-tipo').value = 'auto';
+  document.getElementById('f-break-custom').value = '';
+  setBreakBtn(30);
+  updatePreview();
+  document.getElementById('hdr-sub').textContent = fmtDate(S.form.date);
+}
+
+function onFormChange() {
+  S.form.date  = document.getElementById('f-date').value || todayStr();
+  S.form.start = document.getElementById('f-start').value;
+  S.form.end   = document.getElementById('f-end').value;
+  S.form.note  = document.getElementById('f-note').value;
+  const tv = document.getElementById('f-tipo').value;
+  S.form.tipoOvr = tv === 'auto' ? null : parseInt(tv);
+  document.getElementById('hdr-sub').textContent = fmtDate(S.form.date);
+  updatePreview();
+}
+
+function setNow(which) {
+  const t = nowStr();
+  if (which === 'start') {
+    document.getElementById('f-start').value = t;
+    S.form.start = t;
+  } else {
+    document.getElementById('f-end').value = t;
+    S.form.end = t;
+  }
+  updatePreview();
+}
+
+function setBreak(min) {
+  S.form.breakMin = min;
+  document.getElementById('f-break-custom').value = min > 0 ? min : '';
+  setBreakBtn(min);
+  updatePreview();
+}
+
+function setBreakCustom(val) {
+  const m = parseInt(val) || 0;
+  S.form.breakMin = m;
+  setBreakBtn(-1); // no preset matches
+}
+
+function setBreakBtn(val) {
+  document.querySelectorAll('#break-seg .seg-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.val) === val);
+  });
+}
+
+function toggleTrasferta(on) {
+  S.form.trasferta = on;
+  document.getElementById('tra-section').style.display = on ? 'block' : 'none';
+  updatePreview();
+}
+
+function updatePreview() {
+  const c = calc(S.form);
+  const el = document.getElementById('preview');
+  if (!c) {
+    el.innerHTML = '<div class="preview-empty">Inserisci inizio e fine per vedere il riepilogo</div>';
+    return;
+  }
+  const t = TIPI[c.tipo];
+  el.innerHTML = `
+    <div class="preview-row">
+      <span class="preview-label">Ore lavorative nette</span>
+      <span class="preview-val">${fmtH(c.oreN)}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Ore ordinarie</span>
+      <span class="preview-val">${fmtH(Math.min(CFG.oreStd, c.oreN))}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Ore straordinarie</span>
+      <span class="preview-val" style="color:${c.oreS>0?'var(--orange)':'var(--txt2)'}">
+        ${fmtH(c.oreS)}
+        ${c.oreS>0 ? `<span class="badge" style="background:${t.color};margin-left:6px;">${t.label} +${t.magg}%</span>` : ''}
+      </span>
+    </div>
+    ${c.oreS > 0 ? `<div class="preview-row">
+      <span class="preview-label">Importo straord.</span>
+      <span class="preview-val">${fmtE(c.euroS)}</span>
+    </div>` : ''}
+    ${c.euroT > 0 ? `<div class="preview-row">
+      <span class="preview-label">Trasferta${S.form.loc ? ' — ' + S.form.loc.name : ''}</span>
+      <span class="preview-val">${fmtE(c.euroT)}</span>
+    </div>` : ''}
+    <hr class="preview-divider">
+    <div class="preview-total-row">
+      <span class="preview-total-label">Da liquidare</span>
+      <span class="preview-total-val">${fmtE(c.total)}</span>
+    </div>`;
+}
+
+async function getGeo() {
+  if (!navigator.geolocation) { toast('Geolocalizzazione non supportata'); return; }
+  const btn = document.querySelector('#tab-oggi .geo-btn');
+  btn.textContent = '⏳';
+  try {
+    const { lat, lng, name, dist, inSede } = await checkGeoTrasferta();
+    btn.textContent = '📍';
+    if (inSede) {
+      const ok = confirm(`⚠️ Sei a ${dist}m dalla sede di Casier.\n\nRisulta in sede, non fuori trasferta.\n\nConfermare comunque la trasferta?`);
+      if (!ok) return;
+    }
+    S.form.loc = { name, lat, lng };
+    document.getElementById('f-loc').value = name;
+    const msg = inSede
+      ? `Posizione confermata (in sede): ${name}`
+      : `Fuori sede — ${name} (${dist}m dalla sede)`;
+    toast(msg, 3000);
+    updatePreview();
+  } catch {
+    btn.textContent = '📍';
+    toast('Posizione non disponibile — inserisci manualmente');
+  }
+}
+
+function saveEntry() {
+  if (!S.form.start || !S.form.end) { toast('Inserisci orario inizio e fine'); return; }
+  const existing = S.entries.findIndex(e => e.date === S.form.date);
+  if (existing >= 0) {
+    if (!confirm(`Esiste già una voce per il ${fmtDate(S.form.date)}.\nSovrascrivere?`)) return;
+    S.entries.splice(existing, 1);
+  }
+  S.entries.push({ id: uid(), ...JSON.parse(JSON.stringify(S.form)) });
+  S.entries.sort((a,b) => a.date < b.date ? 1 : -1);
+  saveStorage();
+  toast('Giornata salvata ✓');
+  initForm();
+  switchTab('registro');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB REGISTRO
+// ─────────────────────────────────────────────────────────────────────────────
+function renderRegistro() {
+  const m = parseInt(document.getElementById('reg-m').value);
+  const y = parseInt(document.getElementById('reg-y').value);
+  const filtered = S.entries.filter(e => {
+    const d = new Date(e.date+'T12:00:00');
+    return d.getMonth() === m && d.getFullYear() === y;
+  });
+  const el = document.getElementById('entries-list');
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state"><div class="e-icon">📋</div><p>Nessuna voce per<br>${MESI[m]} ${y}</p></div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(e => {
+    const c = calc(e);
+    const d = new Date(e.date+'T12:00:00');
+    const badges = [];
+    if (c && c.oreS > 0) badges.push(`<span class="badge" style="background:${TIPI[c.tipo].color}">${TIPI[c.tipo].label}</span>`);
+    if (e.trasferta) badges.push(`<span class="badge" style="background:#34C759">📍 ${e.loc?.name || 'Trasferta'}</span>`);
+    return `<div class="entry-card" onclick="openEdit('${e.id}')">
+      <div class="entry-top">
+        <div>
+          <div class="entry-date">${p2(d.getDate())} ${MESI[d.getMonth()].slice(0,3)}</div>
+          <div class="entry-dow">${DOW[d.getDay()]}</div>
+        </div>
+        <div class="entry-time">${e.start || '--:--'} → ${e.end || '--:--'}${e.breakMin ? '<br><span style="font-size:12px;color:var(--txt3)">pausa '+e.breakMin+' min</span>' : ''}</div>
+      </div>
+      <div class="entry-mid">
+        <span class="entry-hours">${c ? fmtH(c.oreN) : '—'} <span>lavorate</span></span>
+        ${badges.join('')}
+      </div>
+      <div class="entry-bottom">
+        <span class="entry-note">${e.note || ''}</span>
+        <span class="entry-euro">${c && c.total > 0 ? fmtE(c.total) : ''}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EDIT VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function openEdit(id) {
+  const entry = S.entries.find(e => e.id === id);
+  if (!entry) return;
+  S.editId = id;
+  S.editForm = JSON.parse(JSON.stringify(entry));
+  renderEditBody();
+  document.getElementById('edit-view').classList.add('open');
+}
+
+function renderEditBody() {
+  const f = S.editForm;
+  const c = calc(f);
+  const tipoOpts = ['auto','0','1','2','3'].map((v,i) => {
+    const labels = ['Auto','Feriale +25%','Feriale nott. +50%','Festivo +50%','Festivo nott. +65%'];
+    const sel = (f.tipoOvr == null && v==='auto') || (f.tipoOvr != null && parseInt(v)===f.tipoOvr);
+    return `<option value="${v}"${sel?' selected':''}>${labels[i]}</option>`;
+  }).join('');
+
+  document.getElementById('edit-body').innerHTML = `
+    <div style="padding:0 var(--pad);">
+      <div class="card-section-title">Giornata lavorativa</div>
+      <div class="card">
+        <div class="frow">
+          <label>Data</label>
+          <div class="fval"><input type="date" value="${f.date}" onchange="EF('date',this.value)"></div>
+        </div>
+        <div class="frow">
+          <label>Inizio</label>
+          <div class="fval">
+            <button class="now-btn" onclick="ENow('start')">Ora attuale</button>
+            <input type="time" id="ef-start" value="${f.start}" onchange="EF('start',this.value)">
+          </div>
+        </div>
+        <div class="frow">
+          <label>Fine</label>
+          <div class="fval">
+            <button class="now-btn" onclick="ENow('end')">Ora attuale</button>
+            <input type="time" id="ef-end" value="${f.end}" onchange="EF('end',this.value)">
+          </div>
+        </div>
+        <div class="frow">
+          <label>Pausa</label>
+          <div class="fval">
+            <input type="number" value="${f.breakMin}" min="0" max="480" style="width:60px;text-align:center;border:.5px solid var(--sep);border-radius:8px;padding:6px 8px;" onchange="EF('breakMin',parseInt(this.value)||0)">
+            <span style="color:var(--txt2);">min</span>
+          </div>
+        </div>
+        <div class="frow">
+          <label>Tipo</label>
+          <div class="fval"><select onchange="EF('tipoOvr',this.value==='auto'?null:parseInt(this.value))">${tipoOpts}</select></div>
+        </div>
+        <div class="frow">
+          <label>Note</label>
+          <div class="fval"><input type="text" value="${f.note||''}" placeholder="Opzionale" onchange="EF('note',this.value)"></div>
+        </div>
+      </div>
+
+      <div class="card-section-title">Trasferta</div>
+      <div class="card">
+        <div class="frow">
+          <label>Trasferta</label>
+          <div class="fval">
+            <label class="toggle">
+              <input type="checkbox" ${f.trasferta?'checked':''} onchange="EF('trasferta',this.checked); document.getElementById('etra').style.display=this.checked?'block':'none'">
+              <div class="toggle-track"></div>
+              <div class="toggle-thumb"></div>
+            </label>
+          </div>
+        </div>
+        <div id="etra" style="display:${f.trasferta?'block':'none'}">
+          <div class="frow">
+            <label>Luogo</label>
+            <div class="fval">
+              <input type="text" id="ef-loc" value="${f.loc?.name||''}" placeholder="Città" oninput="S.editForm.loc={name:this.value,lat:null,lng:null}">
+              <button class="geo-btn" onclick="getGeoEdit()">📍</button>
+            </div>
+          </div>
+          <div class="frow">
+            <label>Tariffa</label>
+            <div class="fval" style="gap:4px;">
+              <span style="color:var(--txt2);">€</span>
+              <input type="number" value="${f.tariff||CFG.traTariff}" min="0" step="0.5" style="width:60px;" onchange="EF('tariff',parseFloat(this.value)||22)">
+              <span style="color:var(--txt2);">/giorno</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-section-title">Anteprima</div>
+      <div class="card" id="edit-preview">${renderPreviewHTML(c, f)}</div>
+
+      <button class="save-btn" onclick="saveEdit()">Salva modifiche</button>
+    </div>`;
+}
+
+function EF(key, val) {
+  S.editForm[key] = val;
+  const c = calc(S.editForm);
+  const prev = document.getElementById('edit-preview');
+  if (prev) prev.innerHTML = renderPreviewHTML(c, S.editForm);
+}
+
+function ENow(which) {
+  const t = nowStr();
+  const key = which === 'start' ? 'start' : 'end';
+  S.editForm[key] = t;
+  const inp = document.getElementById('ef-'+key);
+  if (inp) inp.value = t;
+  EF(key, t);
+}
+
+async function getGeoEdit() {
+async function getGeoEdit() {
+  if (!navigator.geolocation) { toast('Geolocalizzazione non supportata'); return; }
+  const btn = document.querySelector('#edit-view .geo-btn');
+  if (btn) btn.textContent = '⏳';
+  try {
+    const { lat, lng, name, dist, inSede } = await checkGeoTrasferta();
+    if (btn) btn.textContent = '📍';
+    if (inSede) {
+      const ok = confirm(`⚠️ Sei a ${dist}m dalla sede di Casier.\n\nRisulta in sede, non fuori trasferta.\n\nConfermare comunque la trasferta?`);
+      if (!ok) return;
+    }
+    S.editForm.loc = { name, lat, lng };
+    const inp = document.getElementById('ef-loc');
+    if (inp) inp.value = name;
+    const msg = inSede
+      ? `Posizione confermata (in sede): ${name}`
+      : `Fuori sede — ${name} (${dist}m dalla sede)`;
+    toast(msg, 3000);
+    EF('loc', S.editForm.loc);
+  } catch {
+    if (btn) btn.textContent = '📍';
+    toast('Posizione non disponibile — inserisci manualmente');
+  }
+}
+
+function renderPreviewHTML(c, f) {
+  if (!c) return '<div class="preview-empty">Inserisci inizio e fine per il riepilogo</div>';
+  const t = TIPI[c.tipo];
+  return `
+    <div class="preview-row"><span class="preview-label">Ore nette</span><span class="preview-val">${fmtH(c.oreN)}</span></div>
+    <div class="preview-row">
+      <span class="preview-label">Straordinario</span>
+      <span class="preview-val" style="color:${c.oreS>0?'var(--orange)':'var(--txt2)'}">
+        ${fmtH(c.oreS)} ${c.oreS>0?`<span class="badge" style="background:${t.color};margin-left:6px;">${t.label} +${t.magg}%</span>`:''}
+      </span>
+    </div>
+    ${c.oreS > 0 ? `<div class="preview-row"><span class="preview-label">Importo straord.</span><span class="preview-val">${fmtE(c.euroS)}</span></div>` : ''}
+    ${c.euroT > 0 ? `<div class="preview-row"><span class="preview-label">Trasferta</span><span class="preview-val">${fmtE(c.euroT)}</span></div>` : ''}
+    <hr class="preview-divider">
+    <div class="preview-total-row"><span class="preview-total-label">Da liquidare</span><span class="preview-total-val">${fmtE(c.total)}</span></div>`;
+}
+
+function saveEdit() {
+  if (!S.editForm.start || !S.editForm.end) { toast('Inserisci inizio e fine'); return; }
+  const idx = S.entries.findIndex(e => e.id === S.editId);
+  if (idx >= 0) S.entries[idx] = { ...S.entries[idx], ...S.editForm };
+  S.entries.sort((a,b) => a.date < b.date ? 1 : -1);
+  saveStorage();
+  toast('Modifiche salvate ✓');
+  closeEdit();
+  renderRegistro();
+}
+
+function deleteEditing() {
+  if (!confirm('Eliminare questa voce?')) return;
+  S.entries = S.entries.filter(e => e.id !== S.editId);
+  saveStorage();
+  toast('Eliminato');
+  closeEdit();
+  renderRegistro();
+}
+
+function closeEdit() {
+  document.getElementById('edit-view').classList.remove('open');
+  S.editId = null; S.editForm = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB RIEPILOGO
+// ─────────────────────────────────────────────────────────────────────────────
+function renderRiepilogo() {
+  const m = parseInt(document.getElementById('sum-m').value);
+  const y = parseInt(document.getElementById('sum-y').value);
+  const filtered = S.entries.filter(e => {
+    const d = new Date(e.date+'T12:00:00');
+    return d.getMonth() === m && d.getFullYear() === y;
+  });
+
+  let oreN=0, oreS=0, euroS=0, euroT=0, giorni=0, ggTra=0;
+  const perTipo = [0,0,0,0];
+  const perTipoEuro = [0,0,0,0];
+
+  filtered.forEach(e => {
+    const c = calc(e);
+    if (!c) return;
+    giorni++;
+    oreN  += c.oreN;
+    oreS  += c.oreS;
+    euroS += c.euroS;
+    euroT += c.euroT;
+    if (e.trasferta) ggTra++;
+    perTipo[c.tipo]     += c.oreS;
+    perTipoEuro[c.tipo] += c.euroS;
+  });
+
+  const el = document.getElementById('summary-content');
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state"><div class="e-icon">📊</div><p>Nessuna voce per<br>${MESI[m]} ${y}</p></div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="sum-grid">
+      <div class="sum-card"><div class="sum-label">Giorni lavorati</div><div class="sum-val">${giorni}</div></div>
+      <div class="sum-card"><div class="sum-label">Ore totali nette</div><div class="sum-val">${fmtH(oreN)}</div></div>
+      <div class="sum-card"><div class="sum-label">Ore straordinarie</div><div class="sum-val" style="color:var(--orange)">${fmtH(oreS)}</div></div>
+      <div class="sum-card"><div class="sum-label">Importo straord.</div><div class="sum-val">${fmtE(euroS)}</div></div>
+      <div class="sum-card"><div class="sum-label">Giorni trasferta</div><div class="sum-val" style="color:var(--green)">${ggTra}</div></div>
+      <div class="sum-card"><div class="sum-label">Importo trasferte</div><div class="sum-val">${fmtE(euroT)}</div></div>
+      <div class="sum-card full accent"><div class="sum-label">Totale da liquidare</div><div class="sum-val">${fmtE(euroS+euroT)}</div><div class="sum-sub">Straordinari + Trasferte</div></div>
+    </div>
+
+    <div class="card-section-title">Dettaglio straordinari</div>
+    <div class="detail-table">
+      ${TIPI.map((t,i) => perTipo[i] > 0 ? `
+        <div class="dt-row">
+          <span class="dt-label"><span class="dot" style="background:${t.color}"></span>${t.label} <small style="color:var(--txt3)">+${t.magg}%</small></span>
+          <span class="dt-val">${fmtH(perTipo[i])} → ${fmtE(perTipoEuro[i])}</span>
+        </div>` : '').join('')}
+      ${oreS === 0 ? '<div class="dt-row"><span class="dt-label" style="color:var(--txt3)">Nessuno straordinario</span></div>' : ''}
+    </div>
+
+    <button class="export-btn" onclick="exportCSV(${m},${y})">Esporta CSV — ${MESI[m]} ${y}</button>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORT CSV
+// ─────────────────────────────────────────────────────────────────────────────
+function exportCSV(m, y) {
+  const filtered = S.entries.filter(e => {
+    const d = new Date(e.date+'T12:00:00');
+    return d.getMonth() === m && d.getFullYear() === y;
+  });
+  let csv = `Timbrature Ecoprogram Flotte — ${MESI[m]} ${y}\n`;
+  csv += 'Data;Giorno;Inizio;Fine;Pausa (min);Ore nette;Ore straord.;Tipo;Magg.%;Importo straord.;Trasferta;Luogo;Tariffa;Note\n';
+  let totOreN=0, totOreS=0, totEuroS=0, totEuroT=0;
+  filtered.forEach(e => {
+    const d = new Date(e.date+'T12:00:00');
+    const c = calc(e);
+    if (!c) return;
+    totOreN  += c.oreN;  totOreS  += c.oreS;
+    totEuroS += c.euroS; totEuroT += c.euroT;
+    csv += [
+      e.date, DOW[d.getDay()], e.start, e.end, e.breakMin||0,
+      fmtN(c.oreN), fmtN(c.oreS), TIPI[c.tipo].label, TIPI[c.tipo].magg+'%',
+      fmtN(c.euroS), e.trasferta?'Sì':'No',
+      e.loc?.name||'', e.trasferta?(e.tariff||22):'', e.note||''
+    ].join(';') + '\n';
+  });
+  csv += `\nTotale;;;;; ${fmtN(totOreN)};${fmtN(totOreS)};;;${fmtN(totEuroS)};;;\n`;
+  csv += `Trasferte;;;;;;;;; ;${fmtN(totEuroT)}\n`;
+  csv += `TOTALE DA LIQUIDARE;;;;;;;;;${fmtN(totEuroS+totEuroT)}\n`;
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `timbrature_${MESI[m]}_${y}.csv`;
+  a.click();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT SELECTS
+// ─────────────────────────────────────────────────────────────────────────────
+function initSelects() {
+  const now = new Date();
+  const cm = now.getMonth(), cy = now.getFullYear();
+  ['reg-m','sum-m'].forEach(id => {
+    const el = document.getElementById(id);
+    MESI.forEach((m,i) => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = m;
+      if (i === cm) o.selected = true;
+      el.appendChild(o);
+    });
+  });
+  ['reg-y','sum-y'].forEach(id => {
+    const el = document.getElementById(id);
+    for (let y = cy-2; y <= cy+1; y++) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y;
+      if (y === cy) o.selected = true;
+      el.appendChild(o);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOTSTRAP
+// ─────────────────────────────────────────────────────────────────────────────
+S.entries = loadEntries();
+initSelects();
+initForm();
+document.getElementById('hdr-sub').textContent = fmtDate(todayStr());
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
