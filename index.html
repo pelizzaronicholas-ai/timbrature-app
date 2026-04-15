@@ -114,6 +114,7 @@ input::placeholder { color: var(--txt3); }
   font-size: 13px; font-weight: 500; color: var(--blue);
   background: rgba(0,122,255,.1); border: none; border-radius: 8px;
   padding: 4px 10px; cursor: pointer; white-space: nowrap;
+  touch-action: manipulation;
 }
 .now-btn:active { background: rgba(0,122,255,.2); }
 
@@ -123,6 +124,7 @@ input::placeholder { color: var(--txt3); }
   flex: 1; font-size: 13px; font-weight: 500; color: var(--txt2);
   background: none; border: none; border-radius: 7px;
   padding: 6px 4px; cursor: pointer; transition: all .2s;
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
 }
 .seg-btn.active { background: var(--surface); color: var(--txt); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 
@@ -131,16 +133,16 @@ input::placeholder { color: var(--txt3); }
 .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
 .toggle-track {
   position: absolute; inset: 0; border-radius: 15.5px;
-  background: var(--sep); transition: background .2s;
+  background: rgba(120,120,128,.32); transition: background .25s;
 }
-.toggle input:checked ~ .toggle-track { background: var(--green); }
+.toggle.on .toggle-track { background: var(--green); }
 .toggle-thumb {
   position: absolute; top: 2px; left: 2px;
   width: 27px; height: 27px; border-radius: 50%;
   background: white; box-shadow: 0 2px 4px rgba(0,0,0,.3);
-  transition: transform .2s;
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
 }
-.toggle input:checked ~ .toggle-track ~ .toggle-thumb { transform: translateX(20px); }
+.toggle.on .toggle-thumb { transform: translateX(20px); }
 
 /* ── GEO BUTTON ──────────────────────────────────────────────────── */
 .geo-btn {
@@ -169,7 +171,7 @@ input::placeholder { color: var(--txt3); }
   display: block; width: 100%; padding: 16px; margin-top: 4px;
   background: var(--blue); color: white; border: none; border-radius: var(--radius);
   font-size: 17px; font-weight: 600; font-family: inherit; cursor: pointer;
-  transition: opacity .15s;
+  transition: opacity .15s; touch-action: manipulation;
 }
 .save-btn:active { opacity: .85; }
 .save-btn:disabled { background: var(--txt3); cursor: default; }
@@ -686,6 +688,8 @@ function setBreakBtn(val) {
 function toggleTrasferta(on) {
   S.form.trasferta = on;
   document.getElementById('tra-section').style.display = on ? 'block' : 'none';
+  const lbl = document.querySelector('#tab-oggi .toggle');
+  if (lbl) lbl.classList.toggle('on', on);
   updatePreview();
 }
 
@@ -873,8 +877,8 @@ function renderEditBody() {
         <div class="frow">
           <label>Trasferta</label>
           <div class="fval">
-            <label class="toggle">
-              <input type="checkbox" ${f.trasferta?'checked':''} onchange="EF('trasferta',this.checked); document.getElementById('etra').style.display=this.checked?'block':'none'">
+            <label class="toggle${f.trasferta?' on':''}">
+              <input type="checkbox" ${f.trasferta?'checked':''} onchange="EF('trasferta',this.checked); this.closest('.toggle').classList.toggle('on',this.checked); document.getElementById('etra').style.display=this.checked?'block':'none'">
               <div class="toggle-track"></div>
               <div class="toggle-thumb"></div>
             </label>
@@ -922,7 +926,6 @@ function ENow(which) {
   EF(key, t);
 }
 
-async function getGeoEdit() {
 async function getGeoEdit() {
   if (!navigator.geolocation) { toast('Geolocalizzazione non supportata'); return; }
   const btn = document.querySelector('#edit-view .geo-btn');
