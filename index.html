@@ -514,9 +514,9 @@ input::placeholder { color: var(--txt3); }
 // Retribuzione: €1946.84 / 173 (divisore contrattuale) = €11.25/h
 // ─────────────────────────────────────────────────────────────────────────────
 const CFG = {
-  pagaBase:    11.25,
+  pagaBase:    11.58833,
   oreStd:      8,
-  traTariff:   22,
+  traTariff:   21.80,
 };
 
 // Sede operativa: Via Santi 77, Casier (TV)
@@ -554,7 +554,7 @@ async function checkGeoTrasferta() {
   return { lat, lng, name, dist: Math.round(dist), inSede };
 }
 const TIPI = [
-  { label: 'Feriale',          magg: 25, color: '#007AFF' },
+  { label: 'Feriale',          magg: 30, color: '#007AFF' },
   { label: 'Feriale notturno', magg: 50, color: '#5856D6' },
   { label: 'Festivo',          magg: 50, color: '#FF9500' },
   { label: 'Festivo nott.',    magg: 65, color: '#FF3B30' },
